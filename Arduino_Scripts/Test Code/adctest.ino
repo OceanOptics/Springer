@@ -1,14 +1,4 @@
 
-
-/*
-  Test strings for serial monitor
-  $OPENOBS*4A
-  $SET,1616605996,10*7E
-*/
-
-/*TODO
-*/
-
 /*LIBRARIES
  *  The first three libraries are included in standard Arduino IDE installations
  *  The last three libraries should be be downloaded from github and installed manually.
@@ -22,14 +12,10 @@
  *  CONFIGURATION SETTINGS
  */
  
-//firmware data
 #define pLED2 2
 #define pLED1 3
 #define pLED0 4 
-#define pChipSelect 10       //chip select pin for SD card
-
 #define NUM_SAMPLES 1000
-
 
 //communications vars
 const int MAX_CHAR = 60;            //max num character in messages
@@ -44,10 +30,7 @@ Adafruit_ADS1115 ads;
 int gain;
 
 /* SETUP
- *  try to establish coms with GUI
- *  initiate components
- *  wait for settings or use default
- *  create text file
+* Initialize ADC
  */
 
 void setup() {
@@ -60,12 +43,10 @@ void setup() {
   digitalWrite(pLED2, HIGH);
   
   //initialize the ADC
-  ads.setGain(GAIN_TWO); //reset gain
-  ads.begin(0x48);  // Initialize ads1115
-  ads.setDataRate(RATE_ADS1115_860SPS); //set the sampling speed
-  ads.readADC_SingleEnded(0); //throw one reading away. Seems to come up bad.
-  Serial.println("initializing adc, reading...."+ads.readADC_SingleEnded(0));
-  bool adc_init = ads.readADC_SingleEnded(0) != -1;
+  ads.setGain(GAIN_ONE); 
+  ads.begin(0x48); 
+  ads.setDataRate(RATE_ADS1115_860SPS); 
+  ads.readADC_SingleEnded(0);
   } 
 
 /* LOOP
@@ -86,7 +67,7 @@ int readIndex = 0 ;
 double total = 0; 
 double average;
 
-double smooth()
+double smooth()  //Rolling average smoothing of continual ADC readings 
 {
   total = total - readings[readIndex];
   readings[readIndex]= ads.readADC_SingleEnded(0);

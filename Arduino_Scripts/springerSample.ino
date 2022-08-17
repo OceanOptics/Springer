@@ -1,14 +1,4 @@
 
-
-/*
-  Test strings for serial monitor
-  $OPENOBS*4A
-  $SET,1616605996,10*7E
-*/
-
-/*TODO
-*/
-
 /*LIBRARIES
  *  The first three libraries are included in standard Arduino IDE installations
  *  The last three libraries should be be downloaded from github and installed manually.
@@ -16,67 +6,63 @@
  */
 #include <Wire.h>               //standard library
 #include <SPI.h>                //standard library
-#include <Adafruit_ADS1X15.h>   //Version 2.2.0  https://github.com/adafruit/Adafruit_ADS1X15
+#include <Adafruit_ADS1X15.h>2   //Version 2.2.0  https://github.com/adafruit/Adafruit_ADS1X15
 
 /*
  *  CONFIGURATION SETTINGS
  */
- 
-//firmware data
 #define pLED2 2
 #define pLED1 3
 #define pLED0 4 
 #define NUM_SAMPLES 115
-#define warm 100 
+#define warmUp 100 
 
-//58 = 50 samples
-
-//communications vars
-const int MAX_CHAR = 60;            //max num character in messages
-char messageBuffer[MAX_CHAR];       //buffer for sending and receiving comms
+//communications variables
+const int MAX_CHAR = 60;            //maximum number of characters in messages
+char messageBuffer[MAX_CHAR];       //buffer for sending and receiving communications
 
 //time settings
 unsigned long millisTime;
 long currentTime = 0;
 
+//variables 
 byte LEDArray[] = {pLED0, pLED1, pLED2};
-int bufferVal[]={0,0,0};
 byte LEDArrayLength = sizeof(LEDArray)/sizeof(LEDArray[0]);
 int16_t darkArray[NUM_SAMPLES];
 int16_t lightArray[NUM_SAMPLES];
 int16_t dark, darkSD = 0; 
 int16_t LED0, LED1, LED2 = 0; 
 int16_t LED0SD, LED1SD, LED2SD = 0; 
-int collectedSample = 0; 
+int counter = 1;
+int16_t adc = 0;
+int16_t LEDVal = 0; 
+int32_t darkAvg = 0;
+int16_t temp; 
+int32_t sum=0; 
 
-//ADC vars
+//ADC variables
 Adafruit_ADS1115 ads;
 int gain;
 
 /* SETUP
- *  try to establish coms with GUI
- *  initiate components
- *  warm for settings or use default
- *  create text file
+ *  initiate adc and test readings
+ *  LED startuo sequence 
+ *  Initial dark sample
  */
 
 void setup() {
   delay(100); //allow power to stabilize
-
-  //if anything writes to these before started, it will crash.
   Serial.begin(115200);
   Serial.setTimeout(50);
   Wire.begin();
 
-  
   //initialize the ADC
-  ads.setGain(GAIN_TWO); //reset gain
+  ads.setGain(GAIN_ONE); //reset gain
   ads.begin(0x48);  // Initialize ads1115
   ads.setDataRate(RATE_ADS1115_860SPS); //set the sampling speed
-  ads.readADC_SingleEnded(0); //throw one reading away. Seems to come up bad.
+  ads.readADC_SingleEnded(0);
   Serial.println("initializing adc, reading...."+ads.readADC_SingleEnded(0));
-  bool adc_init = ads.readADC_SingleEnded(0) != -1;
-  //LED test sequence 
+  //LED start sequence 
   for (int k=0;k<5 ;k++){
     for (int i = 0; i < LEDArrayLength; i++) {
     digitalWrite(LEDArray[i], HIGH);
@@ -88,27 +74,14 @@ void setup() {
     delay(250);
   }
   dark = darkSample();
-  
 }
 
-/* LOOP
- *  read sensor
- */
-
-int counter = 1;
-int16_t adc = 0;
-double adc0;
-float volts0;
-int16_t LEDVal = 0; 
-int32_t darkAvg = 0;
-int16_t temp; 
-int32_t sum=0; 
-
+//DARK SAMPLING FUNCTION
 double darkSample(){
   for (int i = 0; i < LEDArrayLength; i++) {
     digitalWrite(LEDArray[i], LOW);
     }
-  delay(warm);
+  delay(warmUp);
   for (int i; i < NUM_SAMPLES;i++){
     darkArray[i] = ads.readADC_SingleEnded(0);
     sum+= darkArray[i];
@@ -117,10 +90,10 @@ double darkSample(){
   sum = 0;
   return dark;
 }
-
+//LIGHT SAMPLING FUNCTION
 double LEDSample(byte LED){
   digitalWrite(LED, HIGH);
-  delay(warm);
+  delay(warmUp);
   for (int i=0; i < NUM_SAMPLES;i++){
   lightArray[i] = ads.readADC_SingleEnded(0);
   sum+=lightArray[i];
@@ -130,7 +103,7 @@ double LEDSample(byte LED){
   sum = 0; 
   return LEDVal;
 }
-
+//STANDARD DEVIATION FUNCTION
 double calculateSD(int data[]) {
     float sum = 0.0, mean, SD = 0.0;
     int i;
@@ -143,6 +116,14 @@ double calculateSD(int data[]) {
     }
     return sqrt(SD / 10);
 }
+
+/* LOOP
+ *  Dark reading 
+ *  LED0,LED1,LED2 readings
+ *  Calculate SD of all readings
+ *  Average dark readings
+ *  Serial print data
+ */
 
 void loop() {
   temp = dark;
